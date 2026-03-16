@@ -60,13 +60,13 @@ export default async function DocumentsPage() {
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        {doc.similarAsA[0] || doc.similarAsB[0] ? (
+                        {doc.maxSimilarity > 0 ? (
                           <Link 
-                            href={`/compare/${doc.similarAsA[0]?.id || doc.similarAsB[0]?.id}`} 
+                            href={`/results/${doc.id}`} 
                             className="btn btn-outline" 
                             style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
                           >
-                            Lihat Detail
+                            Lihat Kemiripan
                           </Link>
                         ) : null}
                         <DeleteButton id={doc.id} />

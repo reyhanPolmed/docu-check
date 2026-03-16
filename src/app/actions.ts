@@ -121,3 +121,110 @@ export async function getComparisonDetail(similarityId: string) {
   
   return result;
 }
+
+/**
+ * Get all documents that have at least one similarity result,
+ * along with how many similar documents each one has.
+ */
+export async function getDocumentsWithSimilarity() {
+  const documents = await prisma.document.findMany({
+    include: {
+      similarAsA: {
+        select: { id: true, similarityScore: true, documentBId: true },
+        orderBy: { similarityScore: "desc" },
+      },
+      similarAsB: {
+        select: { id: true, similarityScore: true, documentAId: true },
+        orderBy: { similarityScore: "desc" },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return documents.map((doc: any) => {
+    // Collect all unique paired document IDs
+    const pairedIds = new Set<string>();
+    let maxScore = 0;
+
+    for (const r of doc.similarAsA) {
+      if (r.similarityScore > 0) {
+        pairedIds.add(r.documentBId);
+        if (r.similarityScore > maxScore) maxScore = r.similarityScore;
+      }
+    }
+    for (const r of doc.similarAsB) {
+      if (r.similarityScore > 0) {
+        pairedIds.add(r.documentAId);
+        if (r.similarityScore > maxScore) maxScore = r.similarityScore;
+      }
+    }
+
+    return {
+      id: doc.id,
+      title: doc.title,
+      fileName: doc.fileName,
+      createdAt: doc.createdAt,
+      similarCount: pairedIds.size,
+      maxSimilarity: maxScore,
+    };
+  });
+}
+
+/**
+ * Get all similar document pairs for a specific document ID.
+ * Returns an array of pairs with document info and similarity scores.
+ */
+export async function getDocumentSimilarPairs(docId: string) {
+  // Get the source document
+  const sourceDoc = await prisma.document.findUnique({
+    where: { id: docId },
+    select: { id: true, title: true, fileName: true },
+  });
+
+  if (!sourceDoc) return null;
+
+  // Get all similarity results where this doc is either A or B
+  const resultsAsA = await prisma.similarityResult.findMany({
+    where: { documentAId: docId },
+    include: {
+      documentB: {
+        select: { id: true, title: true, fileName: true },
+      },
+    },
+    orderBy: { similarityScore: "desc" },
+  });
+
+  const resultsAsB = await prisma.similarityResult.findMany({
+    where: { documentBId: docId },
+    include: {
+      documentA: {
+        select: { id: true, title: true, fileName: true },
+      },
+    },
+    orderBy: { similarityScore: "desc" },
+  });
+
+  // Normalize the pairs so source doc is always on the "left"
+  const pairs = [
+    ...resultsAsA.map((r: any) => ({
+      similarityId: r.id,
+      score: r.similarityScore,
+      pairedDoc: r.documentB,
+      sourceIsA: true,
+    })),
+    ...resultsAsB.map((r: any) => ({
+      similarityId: r.id,
+      score: r.similarityScore,
+      pairedDoc: r.documentA,
+      sourceIsA: false,
+    })),
+  ];
+
+  // Sort by score descending
+  pairs.sort((a, b) => b.score - a.score);
+
+  return {
+    sourceDoc,
+    pairs,
+  };
+}

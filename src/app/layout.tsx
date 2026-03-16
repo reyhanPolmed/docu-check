@@ -23,6 +23,7 @@ export default function RootLayout({
           <div className="nav-links">
             <Link href="/" className="nav-link">Home</Link>
             <Link href="/upload" className="nav-link">Upload</Link>
+            <Link href="/results" className="nav-link">Hasil Deteksi</Link>
             <Link href="/documents" className="nav-link">Daftar Dokumen</Link>
           </div>
         </nav>
