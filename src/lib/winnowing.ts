@@ -3,8 +3,8 @@
  * With Position Metadata Support
  */
 
-export const K_SIZE = 5; // k-gram size
-export const WINDOW_SIZE = 4; // window size
+export const K_SIZE = 15; // k-gram size (increased from 5 to prevent short non-plagiarized matches)
+export const WINDOW_SIZE = 10; // window size
 
 export interface Fingerprint {
   hash: number;
@@ -165,27 +165,58 @@ export function calculateSimilarity(fpA: number[] | Fingerprint[], fpB: number[]
 /**
  * Finds matching ranges between two sets of position-aware fingerprints
  */
-export function findMatchedRanges(fpA: Fingerprint[], fpB: Fingerprint[]): MatchedRanges {
-  // 1. Find common hashes
-  const setAHashes = new Set(fpA.map(f => f.hash));
-  const setBHashes = new Set(fpB.map(f => f.hash));
+export function findMatchedRanges(
+  fpA: Fingerprint[], 
+  fpB: Fingerprint[],
+  textA?: string,
+  textB?: string
+): MatchedRanges {
   
-  const commonHashes = new Set<number>();
-  for (const h of setAHashes) {
-    if (setBHashes.has(h)) {
-      commonHashes.add(h);
+  const mapA = new Map<number, Fingerprint[]>();
+  for (const f of fpA) {
+    if (!mapA.has(f.hash)) mapA.set(f.hash, []);
+    mapA.get(f.hash)!.push(f);
+  }
+
+  const mapB = new Map<number, Fingerprint[]>();
+  for (const f of fpB) {
+    if (!mapB.has(f.hash)) mapB.set(f.hash, []);
+    mapB.get(f.hash)!.push(f);
+  }
+
+  const validA = new Set<Fingerprint>();
+  const validB = new Set<Fingerprint>();
+
+  for (const [hash, fpsA] of mapA.entries()) {
+    const fpsB = mapB.get(hash);
+    if (!fpsB) continue;
+
+    if (textA && textB) {
+      // Exact text verification (prevents hash collisions)
+      for (const fA of fpsA) {
+        const strA = normalizeText(textA.substring(fA.origStart, fA.origEnd + 1));
+        let matchFound = false;
+        
+        for (const fB of fpsB) {
+          const strB = normalizeText(textB.substring(fB.origStart, fB.origEnd + 1));
+          if (strA === strB) {
+            validB.add(fB);
+            matchFound = true;
+          }
+        }
+        
+        if (matchFound) {
+          validA.add(fA);
+        }
+      }
+    } else {
+      fpsA.forEach(f => validA.add(f));
+      fpsB.forEach(f => validB.add(f));
     }
   }
 
-  // 2. Extract ranges for common hashes
-  const extractRanges = (fps: Fingerprint[]): [number, number][] => {
-    return fps
-      .filter(f => commonHashes.has(f.hash))
-      .map(f => [f.origStart, f.origEnd] as [number, number]);
-  };
-
-  const rangesA = extractRanges(fpA);
-  const rangesB = extractRanges(fpB);
+  const rangesA = Array.from(validA).map(f => [f.origStart, f.origEnd] as [number, number]);
+  const rangesB = Array.from(validB).map(f => [f.origStart, f.origEnd] as [number, number]);
 
   // 3. Merge overlapping ranges
   const mergeRanges = (ranges: [number, number][]): [number, number][] => {
@@ -200,11 +231,10 @@ export function findMatchedRanges(fpA: Fingerprint[], fpB: Fingerprint[]): Match
       const current = ranges[i];
       const last = merged[merged.length - 1];
       
-      // If ranges overlap or are adjacent (allowing small gaps like spaces/punctuation)
-      // Since window size and k-grams skip punctuation, we allow a small gap (e.g., 5 chars) to merge them visually
-      const maxGap = 5; 
+      // Use character gap instead of k-gram gap, 15 chars allows minor edits without breaking range
+      const maxGapChars = 15; 
       
-      if (current[0] <= last[1] + maxGap) {
+      if (current[0] <= last[1] + maxGapChars) {
         last[1] = Math.max(last[1], current[1]);
       } else {
         merged.push(current);
@@ -214,8 +244,14 @@ export function findMatchedRanges(fpA: Fingerprint[], fpB: Fingerprint[]): Match
     return merged;
   };
 
+  // 4. Filter short ranges (anti-false-positive)
+  const MIN_RANGE_CHARS = 30;
+  const filterShortRanges = (ranges: [number, number][]): [number, number][] => {
+    return ranges.filter(r => (r[1] - r[0] + 1) >= MIN_RANGE_CHARS);
+  };
+
   return {
-    rangesA: mergeRanges(rangesA),
-    rangesB: mergeRanges(rangesB)
+    rangesA: filterShortRanges(mergeRanges(rangesA)),
+    rangesB: filterShortRanges(mergeRanges(rangesB))
   };
 }

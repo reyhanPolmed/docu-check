@@ -40,15 +40,16 @@ export async function uploadDocument(formData: FormData) {
     select: {
       id: true,
       fingerprints: true,
+      content: true,
     },
   });
 
   if (existingDocuments.length > 0) {
-    const similarityData = existingDocuments.map((doc: { id: string, fingerprints: any }) => {
+    const similarityData = existingDocuments.map((doc: { id: string, fingerprints: any, content: string }) => {
       // fingerprints field is now a JsonArray of Fingerprint objects in Prisma
       const docFingerprints = doc.fingerprints as Fingerprint[];
       const score = calculateSimilarity(fingerprints, docFingerprints);
-      const matchedRanges = findMatchedRanges(fingerprints, docFingerprints);
+      const matchedRanges = findMatchedRanges(fingerprints, docFingerprints, content, doc.content);
       
       return {
         documentAId: document.id,
