@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { getDocuments, deleteDocument } from "@/app/actions";
 import Link from "next/link";
 import DeleteButton from "./DeleteButton"; // We'll create this
@@ -61,9 +62,9 @@ export default async function DocumentsPage() {
                     <td>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
                         {doc.maxSimilarity > 0 ? (
-                          <Link 
-                            href={`/results/${doc.id}`} 
-                            className="btn btn-outline" 
+                          <Link
+                            href={`/results/${doc.id}`}
+                            className="btn btn-outline"
                             style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}
                           >
                             Lihat Kemiripan
