@@ -30,8 +30,10 @@ COPY . .
 RUN npx prisma generate
 
 # Build Next.js standalone application
-
 RUN npm run build
+
+# Prune devDependencies after build so only production deps remain
+RUN npm prune --omit=dev
 
 # ========================================
 # Stage 3: Production Runner
@@ -54,16 +56,15 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy Prisma schema (needed at runtime for migrations during entrypoint)
+# Copy Prisma schema and config (needed at runtime for db push)
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
-# Also need package.json for Prisma commands if required
 COPY --from=builder /app/package.json ./package.json
 
-# Copy Prisma packages and .bin symlinks so `npx prisma` works at runtime
-COPY --from=builder /app/node_modules/.bin ./node_modules/.bin
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+# Copy ALL production node_modules (includes prisma CLI + all transitive deps)
+# This overwrites the minimal standalone node_modules with a full production set
+COPY --from=builder /app/node_modules ./node_modules
+
 # Copy and set up the entrypoint script
 COPY --from=builder /app/docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh
