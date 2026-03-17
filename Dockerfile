@@ -60,7 +60,8 @@ COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 # Also need package.json for Prisma commands if required
 COPY --from=builder /app/package.json ./package.json
 
-# Copy Prisma packages to ensure configuration module resolves
+# Copy Prisma packages and .bin symlinks so `npx prisma` works at runtime
+COPY --from=builder /app/node_modules/.bin ./node_modules/.bin
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 # Copy and set up the entrypoint script
