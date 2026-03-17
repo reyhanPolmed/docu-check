@@ -30,7 +30,7 @@ COPY . .
 RUN npx prisma generate
 
 # Build Next.js standalone application
-ENV DATABASE_URL="postgresql://dummy:dummy@dummy:5432/dummy?schema=public"
+
 RUN npm run build
 
 # ========================================
