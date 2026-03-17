@@ -60,6 +60,9 @@ COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 # Also need package.json for Prisma commands if required
 COPY --from=builder /app/package.json ./package.json
 
+# Copy Prisma packages to ensure configuration module resolves
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 # Copy and set up the entrypoint script
 COPY --from=builder /app/docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh
