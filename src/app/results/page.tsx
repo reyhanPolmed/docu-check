@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { getDocumentsWithSimilarity } from "@/app/actions";
 import Link from "next/link";
 
