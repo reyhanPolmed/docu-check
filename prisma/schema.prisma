@@ -10,11 +10,9 @@ model Document {
   id           String             @id @default(cuid())
   title        String
   fileName     String
-  content      String             @db.Text
-  fingerprints Json               @default("[]")
+  content      String
   createdAt    DateTime           @default(now())
-  
-  // Relations for similarity
+  fingerprints Json               @default("[]")
   similarAsA   SimilarityResult[] @relation("DocumentA")
   similarAsB   SimilarityResult[] @relation("DocumentB")
 }
@@ -23,13 +21,12 @@ model SimilarityResult {
   id              String   @id @default(cuid())
   documentAId     String
   documentBId     String
-  similarityScore Float    // 0-100
-  matchedRangesA  Json     @default("[]") // Array of tuple [startOrig, endOrig]
-  matchedRangesB  Json     @default("[]") // Array of tuple [startOrig, endOrig]
+  similarityScore Float
   createdAt       DateTime @default(now())
-
-  documentA Document @relation("DocumentA", fields: [documentAId], references: [id], onDelete: Cascade)
-  documentB Document @relation("DocumentB", fields: [documentBId], references: [id], onDelete: Cascade)
+  matchedRangesA  Json     @default("[]")
+  matchedRangesB  Json     @default("[]")
+  documentA       Document @relation("DocumentA", fields: [documentAId], references: [id], onDelete: Cascade)
+  documentB       Document @relation("DocumentB", fields: [documentBId], references: [id], onDelete: Cascade)
 
   @@unique([documentAId, documentBId])
 }
