@@ -3,13 +3,16 @@
 # ========================================
 FROM node:20-alpine AS deps
 
+# libc6-compat is needed for certain Node.js libraries and Prisma
 RUN apk add --no-cache libc6-compat
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+# Copy package management files
+COPY package.json package-lock.json* ./
 
-RUN npm install
+# Use npm ci for clean and exact dependency installation
+RUN npm ci
 
 # ========================================
 # Stage 2: Build the Application
@@ -18,13 +21,16 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Copy over dependencies from the deps stage
 COPY --from=deps /app/node_modules ./node_modules
+# Copy all source files
 COPY . .
 
 # Generate Prisma Client
 RUN npx prisma generate
 
-# Build Next.js
+# Build Next.js standalone application
+ENV DATABASE_URL="postgresql://dummy:dummy@dummy:5432/dummy?schema=public"
 RUN npm run build
 
 # ========================================
@@ -44,18 +50,21 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
 
 # Copy standalone output and static files
+# Next.js standalone output contains everything needed to run without node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy Prisma schema (needed at runtime for migrations)
+# Copy Prisma schema (needed at runtime for migrations during entrypoint)
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
+# Also need package.json for Prisma commands if required
 COPY --from=builder /app/package.json ./package.json
 
-# Copy entrypoint script
+# Copy and set up the entrypoint script
 COPY --from=builder /app/docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh
 
+# Use non-root user
 USER nextjs
 
 EXPOSE 3000
